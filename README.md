@@ -109,6 +109,10 @@ Claude Code stores conversations as `.jsonl` files in `~/.claude/projects/`. Eac
 
 It's read-only — never modifies your conversation files.
 
+### Technical note for contributors
+
+Tool results in Claude Code's `.jsonl` files are stored as `tool_result` blocks inside **user messages**, not assistant messages. This is non-obvious and not documented — it was discovered by inspecting the actual files. The `content` field of a `tool_result` can be either a plain string (e.g. bash output) or an array of sub-blocks with `type: "text"` (e.g. MCP responses from Gmail, Supabase, etc.). The parser handles both cases.
+
 ## Manual usage
 
 You can also run it directly without the `/chat-search` command:
