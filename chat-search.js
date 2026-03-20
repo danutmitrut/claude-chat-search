@@ -107,6 +107,22 @@ for (const projDir of projectDirs) {
                 msgNum: msgCount
               });
             }
+
+            // Tool results embedded in user messages
+            if (Array.isArray(entry.message.content)) {
+              for (const block of entry.message.content) {
+                if (block.type === 'tool_result') {
+                  const toolText = extractToolText(block);
+                  if (toolText && textMatches(toolText)) {
+                    matches.push({
+                      role: 'tool',
+                      preview: getMatchContext(toolText),
+                      msgNum: msgCount
+                    });
+                  }
+                }
+              }
+            }
           }
 
           // Assistant messages
