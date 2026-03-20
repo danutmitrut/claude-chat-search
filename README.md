@@ -2,13 +2,15 @@
 
 Full-text search across all your Claude Code conversations.
 
-Claude Code's built-in `/resume` picker searches by conversation name only. This tool searches through the **actual content** of every message in every conversation — so you can find that one session where you discussed a specific topic, API, or decision.
+Claude Code's built-in `/resume` picker searches by conversation name only. This tool searches through the **actual content** of every message, tool call, and tool result in every conversation — so you can find that one session where you discussed a specific topic, API, or decision.
 
 ## What it does
 
 - Searches through all `.jsonl` conversation files across all projects
+- Searches user messages, assistant messages, **and tool results** (MCP outputs, web searches, etc.)
+- Supports plain text search and **regex patterns**
+- Configurable context window for match snippets
 - Shows matching conversations ranked by number of matches
-- Displays context snippets around each match
 - Provides UUIDs for easy `claude --resume` access
 - Zero dependencies — just Node.js built-ins
 
@@ -59,24 +61,51 @@ Restart Claude Code (or `/clear`), then use:
 /chat-search auth middleware
 ```
 
-You'll see something like:
+### Regex search
+
+Use `--regex` (or `-r`) to search with regex patterns:
 
 ```
-"supabase" — 23 conversation(s) found
+/chat-search supabase.*auth --regex
+/chat-search error.*404 -r
+```
 
-1. [426 matches] Built reservation form with database integration
-   25.02.2026 | 7262 msgs | 5f9f961a...
+### Custom context window
+
+Use `--context N` (or `-c N`) to control how many characters are shown around each match (default: 40):
+
+```
+/chat-search deploy --context 80
+/chat-search migration -c 100
+```
+
+### Combined
+
+```
+/chat-search supabase.*rls --regex --context 80
+```
+
+## Example output
+
+```
+"supabase.*auth" (regex) — 12 conversation(s) found
+
+1. [224 matches] Built reservation form with database integration
+   2/25/2026 | 7262 msgs | 5f9f961a...
    > [assistant] msg #13: ...configured Supabase real (credentials + table)...
-   > [assistant] msg #25: ...lib/supabase.ts created (helper connection)...
+   > [tool] msg #103: ...POST "https://xyz.supabase.co/rest/v1/rpc" -H "apikey:...
+   > [tool] msg #105: ...POST "https://api.supabase.com/v1/projects/xyz/database...
 
 2. [64 matches] Explored ccforeveryone.com tools
-   22.02.2026 | 2112 msgs | 9f21a9ba...
+   2/22/2026 | 2112 msgs | 9f21a9ba...
    > [assistant] msg #207: ...Context7, Playwright, Supabase, GitHub configured...
 ```
 
+Note: `[tool]` results are now included in search — this catches MCP outputs, web searches, command results, and other tool interactions that the built-in search misses entirely.
+
 ## How it works
 
-Claude Code stores conversations as `.jsonl` files in `~/.claude/projects/`. Each line is a JSON object containing messages. The script reads every file, parses every message, and searches through the text content.
+Claude Code stores conversations as `.jsonl` files in `~/.claude/projects/`. Each line is a JSON object containing messages. The script reads every file, parses every message (including tool use and tool results), and searches through the text content.
 
 It's read-only — never modifies your conversation files.
 
@@ -86,6 +115,8 @@ You can also run it directly without the `/chat-search` command:
 
 ```bash
 node ~/.claude/tools/chat-search.js "your search term"
+node ~/.claude/tools/chat-search.js "pattern.*here" --regex
+node ~/.claude/tools/chat-search.js "keyword" --context 80
 ```
 
 ## License

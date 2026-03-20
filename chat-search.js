@@ -4,11 +4,57 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const query = process.argv.slice(2).join(' ').toLowerCase();
+// Parse flags
+const args = process.argv.slice(2);
+let useRegex = false;
+let contextSize = 40;
+const queryParts = [];
+
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--regex' || args[i] === '-r') {
+    useRegex = true;
+  } else if (args[i] === '--context' || args[i] === '-c') {
+    contextSize = parseInt(args[++i]) || 40;
+  } else {
+    queryParts.push(args[i]);
+  }
+}
+
+const query = queryParts.join(' ');
 
 if (!query) {
-  console.log('Usage: node chat-search.js <keyword>');
+  console.log('Usage: node chat-search.js <keyword> [--regex] [--context N]');
+  console.log('  --regex, -r      Treat query as regex pattern');
+  console.log('  --context N, -c N  Context window size (default: 40 chars)');
   process.exit(1);
+}
+
+// Build matcher
+let matcher;
+if (useRegex) {
+  try {
+    matcher = new RegExp(query, 'i');
+  } catch (e) {
+    console.log(`Invalid regex: "${query}" — ${e.message}`);
+    process.exit(1);
+  }
+} else {
+  matcher = null; // use simple includes
+}
+
+const queryLower = query.toLowerCase();
+
+function textMatches(text) {
+  if (matcher) return matcher.test(text);
+  return text.toLowerCase().includes(queryLower);
+}
+
+function findMatchIndex(text) {
+  if (matcher) {
+    const m = text.match(matcher);
+    return m ? text.toLowerCase().indexOf(m[0].toLowerCase()) : -1;
+  }
+  return text.toLowerCase().indexOf(queryLower);
 }
 
 const projectsDir = path.join(os.homedir(), '.claude', 'projects');
@@ -45,6 +91,7 @@ for (const projDir of projectDirs) {
         try {
           const entry = JSON.parse(line);
 
+          // User messages
           if (entry.message && entry.message.role === 'user') {
             msgCount++;
             const text = extractText(entry.message.content);
@@ -53,23 +100,52 @@ for (const projDir of projectDirs) {
               firstUserMsg = text.slice(0, 80);
             }
 
-            if (text.toLowerCase().includes(query)) {
+            if (textMatches(text)) {
               matches.push({
                 role: 'user',
-                preview: getMatchContext(text, query),
+                preview: getMatchContext(text),
                 msgNum: msgCount
               });
             }
           }
 
+          // Assistant messages
           if (entry.message && entry.message.role === 'assistant') {
             msgCount++;
             const text = extractText(entry.message.content);
 
-            if (text.toLowerCase().includes(query)) {
+            if (textMatches(text)) {
               matches.push({
                 role: 'assistant',
-                preview: getMatchContext(text, query),
+                preview: getMatchContext(text),
+                msgNum: msgCount
+              });
+            }
+
+            // Tool results within assistant content
+            if (Array.isArray(entry.message.content)) {
+              for (const block of entry.message.content) {
+                if (block.type === 'tool_result' || block.type === 'tool_use') {
+                  const toolText = extractToolText(block);
+                  if (toolText && textMatches(toolText)) {
+                    matches.push({
+                      role: 'tool',
+                      preview: getMatchContext(toolText),
+                      msgNum: msgCount
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          // Tool results as separate entries
+          if (entry.type === 'tool_result' || entry.tool_result) {
+            const toolText = extractToolText(entry.tool_result || entry);
+            if (toolText && textMatches(toolText)) {
+              matches.push({
+                role: 'tool',
+                preview: getMatchContext(toolText),
                 msgNum: msgCount
               });
             }
@@ -108,7 +184,8 @@ if (results.length === 0) {
   process.exit(0);
 }
 
-console.log(`\n"${query}" — ${results.length} conversation(s) found\n`);
+const mode = useRegex ? 'regex' : 'text';
+console.log(`\n"${query}" (${mode}) — ${results.length} conversation(s) found\n`);
 
 for (let i = 0; i < results.length; i++) {
   const r = results[i];
@@ -134,12 +211,20 @@ function extractText(content) {
   return '';
 }
 
-function getMatchContext(text, query) {
-  const lower = text.toLowerCase();
-  const idx = lower.indexOf(query);
-  if (idx === -1) return text.slice(0, 100);
+function extractToolText(block) {
+  if (!block) return '';
+  if (typeof block === 'string') return block;
+  if (block.content) return extractText(block.content);
+  if (block.output) return typeof block.output === 'string' ? block.output : JSON.stringify(block.output);
+  if (block.input) return typeof block.input === 'string' ? block.input : JSON.stringify(block.input);
+  return '';
+}
 
-  const start = Math.max(0, idx - 40);
-  const end = Math.min(text.length, idx + query.length + 40);
+function getMatchContext(text) {
+  const idx = findMatchIndex(text);
+  if (idx === -1) return text.slice(0, contextSize * 2);
+
+  const start = Math.max(0, idx - contextSize);
+  const end = Math.min(text.length, idx + query.length + contextSize);
   return text.slice(start, end).replace(/\n/g, ' ').trim();
 }
