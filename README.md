@@ -2,7 +2,7 @@
 
 Full-text search across all your Claude Code conversations.
 
-Claude Code's built-in `/resume` picker searches by conversation name only. This tool searches through the **actual content** of every message, tool call, and tool result in every conversation — so you can find that one session where you discussed a specific topic, API, or decision.
+Claude Code's built-in `/resume` picker searches by conversation name only. This plugin searches through the **actual content** of every message, tool call, and tool result in every conversation — so you can find that one session where you discussed a specific topic, API, or decision.
 
 ## What it does
 
@@ -16,6 +16,16 @@ Claude Code's built-in `/resume` picker searches by conversation name only. This
 
 ## Install
 
+### As a Claude Code plugin (recommended)
+
+```bash
+claude plugin install --source https://github.com/danutmitrut/claude-chat-search.git
+```
+
+Then restart Claude Code. The `/chat-search` command will be available.
+
+### Manual install via Claude Code
+
 Open Claude Code in VS Code and paste this as a single message:
 
 ```
@@ -26,7 +36,7 @@ git clone https://github.com/danutmitrut/claude-chat-search.git /tmp/claude-chat
 
 2. Copy the search script:
 mkdir -p ~/.claude/tools
-cp /tmp/claude-chat-search/chat-search.js ~/.claude/tools/chat-search.js
+cp /tmp/claude-chat-search/scripts/chat-search.js ~/.claude/tools/chat-search.js
 
 3. Create the command file ~/.claude/commands/chat-search.md with this content:
 
@@ -51,9 +61,9 @@ Present results clearly:
 5. Test it: run /chat-search supabase (or any keyword relevant to you)
 ```
 
-## After install
+## Usage
 
-Restart Claude Code (or `/clear`), then use:
+After install, restart Claude Code (or `/clear`), then use:
 
 ```
 /chat-search supabase
@@ -101,7 +111,7 @@ Use `--context N` (or `-c N`) to control how many characters are shown around ea
    > [assistant] msg #207: ...Context7, Playwright, Supabase, GitHub configured...
 ```
 
-Note: `[tool]` results are now included in search — this catches MCP outputs, web searches, command results, and other tool interactions that the built-in search misses entirely.
+Note: `[tool]` results are included in search — this catches MCP outputs, web searches, command results, and other tool interactions that the built-in search misses entirely.
 
 ## How it works
 
@@ -112,16 +122,6 @@ It's read-only — never modifies your conversation files.
 ### Technical note for contributors
 
 Tool results in Claude Code's `.jsonl` files are stored as `tool_result` blocks inside **user messages**, not assistant messages. This is non-obvious and not documented — it was discovered by inspecting the actual files. The `content` field of a `tool_result` can be either a plain string (e.g. bash output) or an array of sub-blocks with `type: "text"` (e.g. MCP responses from Gmail, Supabase, etc.). The parser handles both cases.
-
-## Manual usage
-
-You can also run it directly without the `/chat-search` command:
-
-```bash
-node ~/.claude/tools/chat-search.js "your search term"
-node ~/.claude/tools/chat-search.js "pattern.*here" --regex
-node ~/.claude/tools/chat-search.js "keyword" --context 80
-```
 
 ## License
 

@@ -7,8 +7,12 @@ Search through the full content of all Claude Code conversations (not just title
 Run:
 
 ```bash
-node ~/.claude/tools/chat-search.js $ARGUMENTS
+node ${CLAUDE_PLUGIN_ROOT}/scripts/chat-search.js $ARGUMENTS
 ```
+
+Supports flags:
+- `--regex` or `-r` — treat query as regex pattern
+- `--context N` or `-c N` — context window size in chars (default: 40)
 
 If no arguments provided, ask the user what they want to search for.
 

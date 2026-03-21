@@ -1,0 +1,8 @@
+{
+  "name": "chat-search",
+  "description": "Full-text search across all Claude Code conversations. Search through message content, tool results, and MCP outputs — not just titles.",
+  "author": {
+    "name": "Dan Mitrut",
+    "email": "dan@hellobusiness.ro"
+  }
+}
